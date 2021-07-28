@@ -35,8 +35,7 @@ func NewMessage(key string, offset int64, value string) Message {
 }
 
 func (t *Topic) AnnounceSubscription(consumerName string, partitionNumber int) error {
-	path := fmt.Sprintf("%v/partition=%v/consumers/%v", t.GetName(), partitionNumber, consumerName)
-	hb := path + "/heartbeat"
+	hb := fmt.Sprintf("%v/partition=%v/consumers/%v/heartbeat", t.GetName(), partitionNumber, consumerName)
 	re, err := t.etcd.Get(context.TODO(), hb)
 	if err != nil {
 		return err
@@ -166,7 +165,7 @@ func (s *Subscription) KeepSubscriptionAlive() chan bool {
 
 func (s *Subscription) CommitOffset(offset int64) error {
 	t := s.Topic
-	co := fmt.Sprintf("%v/partition=%v/consumers/%v/offset", t.GetName().String(), s.Partition, s.ConsumerName)
+	co := fmt.Sprintf("%v/partition=%v/consumers/%v/offset", t.GetName(), s.Partition, s.ConsumerName)
 	tx := t.etcd.Txn(context.TODO())
 	_, err := tx.If().Then(
 		clientv3.OpPut(co, fmt.Sprint(offset)),
@@ -180,7 +179,7 @@ func (s *Subscription) CommitOffset(offset int64) error {
 }
 
 func (t *Topic) GetConsumerOffset(consumerName string, partitionNumber int) (int64, error) {
-	co := fmt.Sprintf("%v/partition=%v/consumers/%v/offset", t.GetName().String(), partitionNumber, consumerName)
+	co := fmt.Sprintf("%v/partition=%v/consumers/%v/offset", t.GetName(), partitionNumber, consumerName)
 	re, err := t.etcd.Get(context.TODO(), co)
 	if err != nil {
 		return -1, err
@@ -199,9 +198,22 @@ func (t *Topic) GetConsumerOffset(consumerName string, partitionNumber int) (int
 	return maxOffset, nil
 }
 
+func (s *Subscription) Delete() (err error) {
+	log.Printf("[INFO] - Deleting subscription %v:%v\n", s.ConsumerName, s.Partition)
+	for _, p := range []string{
+		fmt.Sprintf("%v/partition=%v/consumers/%v/heartbeat", s.Topic.GetName(), s.Partition, s.ConsumerName),
+		fmt.Sprintf("%v/partition=%v/consumers/%v/offset", s.Topic.GetName(), s.Partition, s.ConsumerName),
+	} {
+		_, _err := s.Topic.etcd.Delete(context.TODO(), p)
+		if _err != nil {
+			log.Printf("[ERROR] - %v", _err)
+			err = _err
+		}
+	}
+	return nil
+}
+
 func (s *Subscription) Unsubscribe() {
-	// Turn off both heartbeat and consumer channel
-	//s.Shutdown <- true
-	//s.Shutdown <- true
+	log.Printf("[INFO] - Unsubscribing to %v:%v\n", s.ConsumerName, s.Partition)
 	close(s.Shutdown)
 }

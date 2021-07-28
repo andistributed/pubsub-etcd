@@ -1,13 +1,22 @@
 package pubsubetcd
 
-import (
-	"log"
-)
-
-func Unsubscribe(subs []Subscription) {
+func Unsubscribe(subs []Subscription, deletes ...bool) {
+	var delete bool
+	if len(deletes) > 0 {
+		delete = deletes[0]
+	}
 	for _, sub := range subs {
-		log.Printf("[INFO] - Unsubscribing to %v:%v\n", sub.ConsumerName, sub.Partition)
 		sub.Unsubscribe()
+		if !delete {
+			continue
+		}
+		sub.Delete()
+	}
+}
+
+func DeleteSubscription(subs []Subscription) {
+	for _, sub := range subs {
+		sub.Delete()
 	}
 }
 
