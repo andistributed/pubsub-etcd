@@ -24,7 +24,6 @@ type Subscription struct {
 	ConsumerName string
 	Topic        Topic
 	Partition    int
-	unsubscribed bool
 }
 
 func NewMessage(key string, offset int64, value string) Message {
@@ -204,9 +203,5 @@ func (s *Subscription) Unsubscribe() {
 	// Turn off both heartbeat and consumer channel
 	//s.Shutdown <- true
 	//s.Shutdown <- true
-	if s.unsubscribed {
-		return
-	}
-	s.unsubscribed = true
 	close(s.Shutdown)
 }
