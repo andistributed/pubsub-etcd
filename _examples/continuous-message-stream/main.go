@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math/rand"
@@ -36,11 +37,7 @@ func main() {
 	// Check if topic exists. If not, create it.
 	partitions := 5
 	tn := fmt.Sprintf("topic-with-%v-partitions", partitions)
-	mt, err := pubsubetcd.CreateTopic(cli, tn, partitions)
-	if err != nil {
-		log.Printf("%v", err)
-	}
-	mt, err = pubsubetcd.GetTopic(cli, tn)
+	mt, err := pubsubetcd.CreateAndGetTopic(cli, tn, partitions)
 	if err != nil {
 		panic(err)
 	}
@@ -54,44 +51,32 @@ func main() {
 		panic(err)
 	}
 
-	go PrintPeriodically(subs)
+	PrintPeriodically(subs)
 	go GenerateMockData(mt)
 
 	// Wait here until user exists.
-	termChan := make(chan os.Signal)
+	termChan := make(chan os.Signal, 1)
 	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM)
 	<-termChan
 
-	for _, sub := range subs {
-		log.Printf("[INFO] - Unsubscribing to %v:%v", sub.ConsumerName, sub.Partition)
-		sub.Unsubscribe()
-	}
+	pubsubetcd.Unsubscribe(subs)
 }
 
 func PrintPeriodically(subscriptions []pubsubetcd.Subscription) {
-	for _, subscription := range subscriptions {
-		go func(subscription pubsubetcd.Subscription) {
-			for {
-				select {
-				case <-subscription.Shutdown:
-					return
-				case msg := <-subscription.Messages:
-					// Randomly print a sample if the incoming messages.
-					if rand.Intn(100) == 0 {
-						log.Printf("[INFO] - 1%% random sample on incomming messages: %v", msg)
-					}
+	pubsubetcd.WatchSubscription(context.TODO(), subscriptions, func(subscription pubsubetcd.Subscription, msg pubsubetcd.Message) {
+		// Randomly print a sample if the incoming messages.
+		if rand.Intn(100) == 0 {
+			log.Printf("[INFO] - 1%% random sample on incomming messages: %v", msg)
+		}
 
-					// Every 100 messages, let etcd know where we are.
-					if msg.Offset%100 == 0 {
-						log.Printf("[INFO] - Comitting offset %v for %v:%v", msg.Offset, subscription.ConsumerName, subscription.Partition)
-						if err := subscription.CommitOffset(msg.Offset); err != nil {
-							log.Printf("[ERROR] - Failed to commit offset: %v", err)
-						}
-					}
-				}
+		// Every 100 messages, let etcd know where we are.
+		if msg.Offset%100 == 0 {
+			log.Printf("[INFO] - Comitting offset %v for %v:%v", msg.Offset, subscription.ConsumerName, subscription.Partition)
+			if err := subscription.CommitOffset(msg.Offset); err != nil {
+				log.Printf("[ERROR] - Failed to commit offset: %v", err)
 			}
-		}(subscription)
-	}
+		}
+	})
 }
 
 func GenerateMockData(mt pubsubetcd.Topic) {
