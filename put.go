@@ -10,15 +10,15 @@ import (
 )
 
 func (t *Topic) Put(data string) (string, string) {
-	s, f := t.PutBatch([]string{data})
-	var sr, fr string
-	if len(s) == 0 {
-		sr = s[0]
+	succeeds, faileds := t.PutBatch([]string{data})
+	var successResult, failureResult string
+	if len(succeeds) > 0 {
+		successResult = succeeds[0]
 	}
-	if len(f) == 0 {
-		fr = f[0]
+	if len(faileds) > 0 {
+		failureResult = faileds[0]
 	}
-	return sr, fr
+	return successResult, failureResult
 }
 
 func (t *Topic) ScramblePartitions() []int {
@@ -68,16 +68,16 @@ func (t *Topic) PutBatch(data []string) ([]string, []string) {
 		}
 	}
 
-	s := []string{}
-	f := []string{}
+	succeeds := []string{}
+	faileds := []string{}
 	for range make([]struct{}, sends) {
 		select {
 		case msg := <-success:
-			s = append(s, msg...)
+			succeeds = append(succeeds, msg...)
 		case msg := <-failed:
-			f = append(f, msg...)
+			faileds = append(faileds, msg...)
 		}
 	}
 
-	return s, f
+	return succeeds, faileds
 }

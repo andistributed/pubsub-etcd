@@ -73,6 +73,8 @@ func PrintPeriodically(subscriptions []pubsubetcd.Subscription) {
 		go func(subscription pubsubetcd.Subscription) {
 			for {
 				select {
+				case <-subscription.Shutdown:
+					return
 				case msg := <-subscription.Messages:
 					// Randomly print a sample if the incoming messages.
 					if rand.Intn(100) == 0 {

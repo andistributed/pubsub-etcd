@@ -11,6 +11,20 @@ import (
 
 var ErrInvalidTopicName = errors.New(`invalid topic name, must match regex [A-z0-9\-_]{3,}`)
 var ErrPartitionsAtLeastOne = errors.New(`partitions must be at least 1`)
+var ErrTopicAlreadyExists = errors.New(`topic already exists`)
+
+func CreateAndGetTopic(etcd *clientv3.Client, name string, partitions int) (Topic, error) {
+	top, err := CreateTopic(etcd, name, partitions)
+	if err == nil {
+		return top, nil
+	}
+	if !errors.Is(err, ErrTopicAlreadyExists) {
+		return top, err
+	}
+	top.etcd = etcd
+	err = top.GetTopicMetadata("/topic/" + name)
+	return top, err
+}
 
 func GetTopic(etcd *clientv3.Client, name string) (Topic, error) {
 	n := TopicName(name)
@@ -43,7 +57,7 @@ func CreateTopic(etcd *clientv3.Client, name string, partitions int) (Topic, err
 	}
 
 	if len(re.Kvs) != 0 {
-		return Topic{}, fmt.Errorf("topic %v already exists", name)
+		return Topic{}, fmt.Errorf("%s: %w", name, ErrTopicAlreadyExists)
 	}
 
 	// Topic is available, occupy it and set default values
