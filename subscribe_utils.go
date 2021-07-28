@@ -1,7 +1,6 @@
 package pubsubetcd
 
 import (
-	"context"
 	"log"
 )
 
@@ -12,13 +11,11 @@ func Unsubscribe(subs []Subscription) {
 	}
 }
 
-func WatchSubscription(ctx context.Context, subs []Subscription, fn func(Subscription, Message)) {
+func WatchSubscription(subs []Subscription, fn func(Subscription, Message)) {
 	for _, subscription := range subs {
 		go func(subscription Subscription) {
 			for {
 				select {
-				case <-ctx.Done():
-					return
 				case <-subscription.Shutdown:
 					return
 				case msg := <-subscription.Messages:

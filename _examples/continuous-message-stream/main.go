@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"math/rand"
@@ -63,7 +62,7 @@ func main() {
 }
 
 func PrintPeriodically(subscriptions []pubsubetcd.Subscription) {
-	pubsubetcd.WatchSubscription(context.TODO(), subscriptions, func(subscription pubsubetcd.Subscription, msg pubsubetcd.Message) {
+	pubsubetcd.WatchSubscription(subscriptions, func(subscription pubsubetcd.Subscription, msg pubsubetcd.Message) {
 		// Randomly print a sample if the incoming messages.
 		if rand.Intn(100) == 0 {
 			log.Printf("[INFO] - 1%% random sample on incomming messages: %v", msg)

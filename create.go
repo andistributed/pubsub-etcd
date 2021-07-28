@@ -34,10 +34,7 @@ func GetTopic(etcd *clientv3.Client, name string) (Topic, error) {
 	top := Topic{}
 	top.etcd = etcd
 	err := top.GetTopicMetadata("/topic/" + n.String())
-	if err != nil {
-		return Topic{}, err
-	}
-	return top, nil
+	return top, err
 }
 
 func CreateTopic(etcd *clientv3.Client, name string, partitions int) (Topic, error) {

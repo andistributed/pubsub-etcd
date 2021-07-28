@@ -24,6 +24,7 @@ type Subscription struct {
 	ConsumerName string
 	Topic        Topic
 	Partition    int
+	unsubscribed bool
 }
 
 func NewMessage(key string, offset int64, value string) Message {
@@ -83,10 +84,10 @@ func (t *Topic) SubscribeToPartition(consumerName string, partitionNumber int, o
 	s.Partition = partitionNumber
 	s.Shutdown = s.KeepSubscriptionAlive()
 	go func() {
+		defer cancel()
 		for {
 			select {
 			case <-s.Shutdown:
-				cancel()
 				return
 			case msg := <-inc:
 				for _, event := range msg.Events {
@@ -200,5 +201,12 @@ func (t *Topic) GetConsumerOffset(consumerName string, partitionNumber int) (int
 }
 
 func (s *Subscription) Unsubscribe() {
+	// Turn off both heartbeat and consumer channel
+	//s.Shutdown <- true
+	//s.Shutdown <- true
+	if s.unsubscribed {
+		return
+	}
+	s.unsubscribed = true
 	close(s.Shutdown)
 }

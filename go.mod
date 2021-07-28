@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/google/uuid v1.3.0
+	github.com/stretchr/testify v1.7.0
 	go.etcd.io/etcd/client/v3 v3.5.0
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
