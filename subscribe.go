@@ -200,7 +200,5 @@ func (t *Topic) GetConsumerOffset(consumerName string, partitionNumber int) (int
 }
 
 func (s *Subscription) Unsubscribe() {
-	// Turn off both heartbeat and consumer channel
-	s.Shutdown <- true
-	s.Shutdown <- true
+	close(s.Shutdown)
 }
