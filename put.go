@@ -6,12 +6,12 @@ import (
 	"math/rand"
 	"time"
 
-	v3 "go.etcd.io/etcd/clientv3"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 func (t *Topic) Put(data string) (string, string) {
 	s, f := t.PutBatch([]string{data})
-	sr, fr := "", ""
+	var sr, fr string
 	if len(s) == 0 {
 		sr = s[0]
 	}
@@ -41,20 +41,20 @@ func (t *Topic) PutBatch(data []string) ([]string, []string) {
 	failed := make(chan []string)
 
 	tx := t.etcd.Txn(context.TODO()).If()
-	ops := []v3.Op{}
+	ops := []clientv3.Op{}
 	ds := []string{}
 	sends := 0
 	for i, d := range data {
 
 		partition := o[i%t.Partitions]
 		path := fmt.Sprintf("%v/partition=%v/events", t.GetName().String(), partition)
-		ops = append(ops, v3.OpPut(path, d))
+		ops = append(ops, clientv3.OpPut(path, d))
 		ds = append(ds, d)
 
 		if (i+1)%t.Partitions == 0 || i+1 == len(data) {
 			sends++
-			tx.Then(v3.OpTxn(nil, ops, nil))
-			go func(tx v3.Txn, ds []string) {
+			tx.Then(clientv3.OpTxn(nil, ops, nil))
+			go func(tx clientv3.Txn, ds []string) {
 				_, err := tx.Commit()
 				if err != nil {
 					failed <- ds
@@ -63,7 +63,7 @@ func (t *Topic) PutBatch(data []string) ([]string, []string) {
 				}
 			}(tx, ds)
 			tx = t.etcd.Txn(context.TODO()).If()
-			ops = []v3.Op{}
+			ops = []clientv3.Op{}
 			ds = []string{}
 		}
 	}

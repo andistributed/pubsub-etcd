@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	v3 "go.etcd.io/etcd/clientv3"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 var heartbeatTimeoutSeconds = 5
@@ -73,7 +73,8 @@ func (t *Topic) SubscribeToPartition(consumerName string, partitionNumber int, o
 	}
 
 	pref := fmt.Sprintf("%v/partition=%v/events", t.GetName().String(), partitionNumber)
-	inc := t.etcd.Watch(context.TODO(), pref, v3.WithRev(offset))
+	ctx, cancel := context.WithCancel(context.TODO())
+	inc := t.etcd.Watch(ctx, pref, clientv3.WithRev(offset))
 	messages := make(chan Message)
 	s := Subscription{}
 	s.Messages = messages
@@ -85,7 +86,8 @@ func (t *Topic) SubscribeToPartition(consumerName string, partitionNumber int, o
 		for {
 			select {
 			case <-s.Shutdown:
-				break
+				cancel()
+				return
 			case msg := <-inc:
 				for _, event := range msg.Events {
 					// etcd sometimes sends invalid records when watching a channel, especially
@@ -140,13 +142,14 @@ func (s *Subscription) KeepSubscriptionAlive() chan bool {
 	exit := make(chan bool)
 	go func(s *Subscription, exit chan bool) {
 		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-exit:
 				// We're unsubscribing / terminating the liveness of sub.
 				p := fmt.Sprintf("%v/partition=%v/consumers/%v/heartbeat", s.Topic.GetName(), s.Partition, s.ConsumerName)
 				s.Topic.etcd.Put(context.TODO(), p, fmt.Sprint(time.Now().Unix()-int64(heartbeatTimeoutSeconds)))
-				break
+				return
 			case <-ticker.C:
 				p := fmt.Sprintf("%v/partition=%v/consumers/%v/heartbeat", s.Topic.GetName(), s.Partition, s.ConsumerName)
 				_, err := s.Topic.etcd.Put(context.TODO(), p, fmt.Sprint(time.Now().Unix()))
@@ -166,7 +169,7 @@ func (s *Subscription) CommitOffset(offset int64) error {
 	co := fmt.Sprintf("%v/partition=%v/consumers/%v/offset", t.GetName().String(), s.Partition, s.ConsumerName)
 	tx := t.etcd.Txn(context.TODO())
 	_, err := tx.If().Then(
-		v3.OpPut(co, fmt.Sprint(offset)),
+		clientv3.OpPut(co, fmt.Sprint(offset)),
 	).Commit()
 
 	if err != nil {

@@ -2,16 +2,20 @@ package pubsubetcd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
-	"go.etcd.io/etcd/clientv3"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
+
+var ErrInvalidTopicName = errors.New(`invalid topic name, must match regex [A-z0-9\-_]{3,}`)
+var ErrPartitionsAtLeastOne = errors.New(`partitions must be at least 1`)
 
 func GetTopic(etcd *clientv3.Client, name string) (Topic, error) {
 	n := TopicName(name)
 	if !n.IsValid() {
-		return Topic{}, fmt.Errorf(`Invalid topic name, must match regex [A-z0-9\-_]{3,}`)
+		return Topic{}, ErrInvalidTopicName
 	}
 	top := Topic{}
 	top.etcd = etcd
@@ -25,11 +29,11 @@ func GetTopic(etcd *clientv3.Client, name string) (Topic, error) {
 func CreateTopic(etcd *clientv3.Client, name string, partitions int) (Topic, error) {
 	n := TopicName(name)
 	if !n.IsValid() {
-		return Topic{}, fmt.Errorf(`Invalid topic name, must match regex [A-z0-9\-_]{3,}`)
+		return Topic{}, ErrInvalidTopicName
 	}
 
 	if partitions < 0 {
-		return Topic{}, fmt.Errorf("partitions must be at least 1")
+		return Topic{}, ErrPartitionsAtLeastOne
 	}
 
 	tn := "/topic/" + n.String()

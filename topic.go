@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"go.etcd.io/etcd/clientv3"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type TopicName string
